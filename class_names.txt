@@ -1,0 +1,5 @@
+capsules
+injections
+ointment
+suspension
+tablets
