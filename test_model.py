@@ -3,33 +3,54 @@ from tensorflow.keras.preprocessing import image
 import numpy as np
 import os
 
+# загружаем модель один раз при импорте модуля
+MODEL = None
+CLASS_NAMES = []
+
+def load_model():
+    # загрузка модели и названий классов (один раз)
+    global MODEL, CLASS_NAMES
+    
+    if MODEL is None:
+        if not os.path.exists('drug_form_classifier.h5'):
+            print("ошибка: файл модели 'drug_form_classifier.h5' не найден!")
+            return False
+        
+        print("загрузка модели...")
+        MODEL = keras.models.load_model('drug_form_classifier.h5')
+        print("модель загружена!")
+        
+        # загрузка названий классов
+        if os.path.exists('class_names.txt'):
+            with open('class_names.txt', 'r') as f:
+                CLASS_NAMES = [line.strip() for line in f.readlines()]
+        else:
+            CLASS_NAMES = ['capsules', 'injections', 'ointment', 'suspension', 'tablets']
+        
+        print(f"загружено классов: {CLASS_NAMES}")
+    
+    return True
+
 def predict_drug_form(image_path):
-    # Load model
-    if not os.path.exists('drug_form_classifier.h5'):
+    # предсказание формы выпуска лекарства по изображению
+    global MODEL, CLASS_NAMES
+    
+    # загружаем модель если ещё не загружена
+    if not load_model():
         return None, None
-    
-    model = keras.models.load_model('drug_form_classifier.h5')
-    
-    # Load class names
-    CLASS_NAMES = []
-    if os.path.exists('class_names.txt'):
-        with open('class_names.txt', 'r') as f:
-            CLASS_NAMES = [line.strip() for line in f.readlines()]
-    else:
-        CLASS_NAMES = ['capsules', 'injections', 'ointment', 'suspension', 'tablets']
     
     if not os.path.exists(image_path):
-        print(f"ERROR: File {image_path} not found!")
+        print(f"ошибка: файл {image_path} не найден!")
         return None, None
     
-    #подготовка изображений
+    # подготовка изображений
     img = image.load_img(image_path, target_size=(384, 384))
     img_array = image.img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
     img_array = img_array / 255.0
     
-    #предсказание
-    predictions = model.predict(img_array, verbose=0)
+    # предсказание
+    predictions = MODEL.predict(img_array, verbose=0)
     predicted_class_index = np.argmax(predictions[0])
     confidence = predictions[0][predicted_class_index]
     
@@ -37,19 +58,19 @@ def predict_drug_form(image_path):
     
     return predicted_class, confidence * 100
 
-# Тест всех изображений из папки test_images
+# тест всех изображений из папки test_images
 if __name__ == "__main__":
     
-    # Папка с тестовыми изображениями
+    # папка с тестовыми изображениями
     TEST_FOLDER = "test_images"
     
-    # Проверяем существование папки
+    # проверяем существование папки
     if not os.path.exists(TEST_FOLDER):
-        print(f"Folder {TEST_FOLDER} not found!")
-        print(f"Create folder {TEST_FOLDER} and place test images there.")
+        print(f"папка {TEST_FOLDER} не найдена!")
+        print(f"создайте папку {TEST_FOLDER} и поместите туда тестовые изображения.")
         exit()
     
-    # Получаем список всех изображений
+    # получаем список всех изображений
     image_extensions = ['.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG']
     test_images = []
     
@@ -58,43 +79,43 @@ if __name__ == "__main__":
             test_images.append(os.path.join(TEST_FOLDER, filename))
     
     if not test_images:
-        print(f"No images found in folder {TEST_FOLDER}!")
+        print(f"в папке {TEST_FOLDER} не найдено изображений!")
         exit()
     
-    print(f"\nFound {len(test_images)} images for testing")
+    print(f"\nнайдено {len(test_images)} изображений для тестирования")
     print("=" * 60)
     print()
     
-    # Обрабатываем каждое изображение
+    # обрабатываем каждое изображение
     for i, image_path in enumerate(test_images, 1):
-        print(f"\n[{i}/{len(test_images)}] Processing: {os.path.basename(image_path)}")
+        print(f"\n[{i}/{len(test_images)}] обработка: {os.path.basename(image_path)}")
         print("-" * 60)
         
         try:
-            # Получаем предсказание
+            # получаем предсказание
             predicted_class, confidence = predict_drug_form(image_path)
             
             if predicted_class:
-                print(f"\nPREDICTION:")
-                print(f"  Drug form: {predicted_class.upper()}")
-                print(f"  Confidence: {confidence:.2f}%")
+                print(f"\nпредсказание:")
+                print(f"  форма лекарства: {predicted_class.upper()}")
+                print(f"  уверенность: {confidence:.2f}%")
                 
-                # Интерпретация уверенности
+                # интерпретация уверенности
                 if confidence > 80:
-                    print("  Status: High confidence")
+                    print("  статус: высокая уверенность")
                 elif confidence > 60:
-                    print("  Status: Medium confidence")
+                    print("  статус: средняя уверенность")
                 else:
-                    print("  Status: Low confidence")
+                    print("  статус: низкая уверенность")
             else:
-                print("Error: Failed to recognize image")
+                print("ошибка: не удалось распознать изображение")
         
         except Exception as e:
-            print(f"Error processing: {e}")
+            print(f"ошибка обработки: {e}")
         
         print()
     
     print("=" * 60)
-    print(f"Testing completed! Total processed: {len(test_images)} images")
+    print(f"тестирование завершено! всего обработано: {len(test_images)} изображений")
     print("=" * 60)
 

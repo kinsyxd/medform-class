@@ -7,7 +7,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 import os
 
 # ============================================================================
-# НАСТРОЙКИ ПРОЕКТА
+# настройки проекта
 # ============================================================================
 
 # путь к папке с датасетом
@@ -16,53 +16,66 @@ TRAIN_DIR = 'dataset/train'
 # размер изображений
 IMG_SIZE = 384
 
-# Количество изображений, обрабатываемых за раз
-BATCH_SIZE = 16  # Меньше = меньше памяти, но медленнее
+# количество изображений, обрабатываемых за раз
+BATCH_SIZE = 16  # меньше = меньше памяти, но медленнее
 
-# Количество повторений всего датасета
+# количество повторений всего датасета
 EPOCHS = 25
 
-# Имя файла для сохранения модели
+# имя файла для сохранения модели
 MODEL_NAME = 'drug_form_classifier.h5'
 
-print(f"\nSettings:")
-print(f"- Image size: {IMG_SIZE}x{IMG_SIZE}")
-print(f"- Batch size: {BATCH_SIZE}")
-print(f"- Epochs: {EPOCHS}")
-print(f"- Directory: {TRAIN_DIR}\n")
+print(f"\nнастройки:")
+print(f"- размер изображения: {IMG_SIZE}x{IMG_SIZE}")
+print(f"- размер пакета: {BATCH_SIZE}")
+print(f"- эпохи: {EPOCHS}")
+print(f"- каталог: {TRAIN_DIR}\n")
 
 
 # определяем количество классов (в будущем возможно добавлю разделение сиропов и суспензий)
 NUM_CLASSES = len([f for f in os.listdir(TRAIN_DIR) if os.path.isdir(os.path.join(TRAIN_DIR, f))])
-print(f"Found classes: {NUM_CLASSES}")
+print(f"найдено классов: {NUM_CLASSES}")
 
-# получаем названия классов по нзваниям папок
+# получаем названия классов по названиям папок
 CLASS_NAMES = sorted([f for f in os.listdir(TRAIN_DIR) if os.path.isdir(os.path.join(TRAIN_DIR, f))])
-print(f"Classes: {CLASS_NAMES}")
+print(f"классы: {CLASS_NAMES}")
 
-# генератор для аугментации данных
+# генератор для аугментации данных (с разделением на train/validation)
 train_datagen = ImageDataGenerator(
     rescale=1./255,              # пиксели от 0 до 1
     rotation_range=15,           # поворот до +-15 градусов
-    width_shift_range=0.1,      # сдвиг по ширине на 10%
-    height_shift_range=0.1,     # сдвиг по высоте на 10%
+    width_shift_range=0.1,       # сдвиг по ширине на 10%
+    height_shift_range=0.1,      # сдвиг по высоте на 10%
     horizontal_flip=True,        # горизонтальное отражение
     zoom_range=0.1,              # увеличение/уменьшение на 10%
     brightness_range=[0.8, 1.2], # изменение яркости
-    fill_mode='nearest'          # заполнение пустых областей
+    fill_mode='nearest',         # заполнение пустых областей
+    validation_split=0.2         # 20% данных для валидации
 )
 
-# Загружаем изображения из папок
+# загружаем тренировочные изображения (80%)
 train_generator = train_datagen.flow_from_directory(
     TRAIN_DIR,
-    target_size=(IMG_SIZE, IMG_SIZE),  # Изменяем размер всех изображений
+    target_size=(IMG_SIZE, IMG_SIZE),  # изменяем размер всех изображений
     batch_size=BATCH_SIZE,              # сколько изображений за раз?
     class_mode='categorical',           # категориальная классификация
-    shuffle=True                        # Перемешиваем данные
+    shuffle=True,                       # перемешиваем данные
+    subset='training'                   # только тренировочные данные
 )
 
-print(f"Loaded images: {train_generator.samples}")
-print(f"Classes: {train_generator.num_classes}")
+# загружаем валидационные изображения (20%)
+validation_generator = train_datagen.flow_from_directory(
+    TRAIN_DIR,
+    target_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    shuffle=False,                      # не перемешиваем для валидации
+    subset='validation'                 # только валидационные данные
+)
+
+print(f"тренировочных изображений: {train_generator.samples}")
+print(f"валидационных изображений: {validation_generator.samples}")
+print(f"классы: {train_generator.num_classes}")
 print()
 
 base_model = MobileNetV2(
@@ -71,7 +84,7 @@ base_model = MobileNetV2(
     weights='imagenet'
 )
 
-print("Base model: MobileNetV2")
+print("базовая модель: MobileNetV2")
 
 # замораживаем модель mobilenetv2, т.к. мы должны обучать только новые слои
 base_model.trainable = False
@@ -87,61 +100,64 @@ model = keras.Sequential([
 
 # компиляция
 model.compile(
-    optimizer='adam',                      # Алгоритм оптимизации
-    loss='categorical_crossentropy',      # Функция потерь
-    metrics=['accuracy']                   # Метрика качества
+    optimizer='adam',                      # алгоритм оптимизации
+    loss='categorical_crossentropy',      # функция потерь
+    metrics=['accuracy']                   # метрика качества
 )
 
 # выводим структуру модели
-print("Model summary:")
+print("структура модели:")
 model.summary()
 
-# ШАГ 3: callback'и для мониторинга и сохранения лучших вариантов/весов модели
+# шаг 3: callback'и для мониторинга и сохранения лучших вариантов/весов модели
 
 # колбэк для сохранения лучшей модели
 checkpoint = ModelCheckpoint(
     MODEL_NAME,
-    monitor='accuracy',           # мониторинг точности
-    save_best_only=True,          # перезапись модели ТОЛЬОК при улучшении метрик
+    monitor='val_accuracy',       # мониторинг валидационной точности
+    save_best_only=True,          # перезапись модели только при улучшении метрик
     verbose=1                     # вербоз 1 показывает шкалу и метрики эпох
 )
 
 # колбэк для ранней остановки (если модель не улучшается)
 early_stop = EarlyStopping(
-    monitor='accuracy',
-    patience=3,                   # ожидание пяти эпох без улучшения
+    monitor='val_accuracy',       # мониторинг валидационной точности
+    patience=5,                   # ожидание пяти эпох без улучшения
     restore_best_weights=True     # восстанавливаются только лучшие веса
 )
 
 
 # процесс обучения
 print("="*20)
-print("Training started")
+print("начало обучения")
 print("="*20)
 
 # обучаем модель
 history = model.fit(
     train_generator,
     epochs=EPOCHS,
+    validation_data=validation_generator,  # валидационные данные
     callbacks=[checkpoint, early_stop],
     verbose=1
 )
 
 print()
 print("="*20)
-print("Training completed")
+print("обучение завершено")
 print("="*20)
 
 # расчёт финальной точности
-final_accuracy = history.history['accuracy'][-1]
-print(f"\nFinal accuracy: {final_accuracy * 100:.3f}%")
+final_train_accuracy = history.history['accuracy'][-1]
+final_val_accuracy = history.history['val_accuracy'][-1]
+print(f"\nфинальная точность обучения: {final_train_accuracy * 100:.3f}%")
+print(f"финальная точность валидации: {final_val_accuracy * 100:.3f}%")
 
-if final_accuracy > 0.9:
-    print("Excellent result!")
-elif final_accuracy > 0.6:
-    print("Good result")
+if final_val_accuracy > 0.9:
+    print("отличный результат!")
+elif final_val_accuracy > 0.6:
+    print("хороший результат")
 else:
-    print("Poor result - needs improvement")
+    print("плохой результат - требует улучшений")
 
 # сохранение названий классов которые использовались для тренировки
 with open('class_names.txt', 'w') as f:

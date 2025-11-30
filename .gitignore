@@ -1,0 +1,27 @@
+# venv
+venv/
+
+# python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# model files
+*.h5
+
+# tensorFlow logs
+logs/
+runs/
+checkpoints/
+
+# test images (optional - uncomment to exclude)
+test_images/
+
+# ide
+.vscode/
+*.swp
+
+# os
+Thumbs.db
+.DS_Store

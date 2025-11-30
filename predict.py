@@ -1,6 +1,4 @@
-"""
-Drug Form Recognition Script
-"""
+# скрипт распознавания формы лекарственных средств
 
 from tensorflow import keras
 from tensorflow.keras.preprocessing import image
@@ -8,32 +6,32 @@ import numpy as np
 import os
 
 
-#загружаем модель
+# загружаем модель
 MODEL_NAME = 'drug_form_classifier.h5'
-print("Loading model...")
+print("загрузка модели...")
 model = keras.models.load_model(MODEL_NAME)
-print("Model loaded!")
+print("модель загружена!")
 
 # загружаем названия классов
 CLASS_NAMES = []
 if os.path.exists('class_names.txt'):
     with open('class_names.txt', 'r') as f:
         CLASS_NAMES = [line.strip() for line in f.readlines()]
-    print(f"Loaded classes: {len(CLASS_NAMES)}")
+    print(f"загружено классов: {len(CLASS_NAMES)}")
 else:
-    print("class_names.txt not found, using fallback")
+    print("файл class_names.txt не найден, используем значения по умолчанию")
     CLASS_NAMES = ['capsules', 'injections', 'ointment', 'suspension', 'tablets']
 
 print()
 
 
 def predict_drug_form(image_path):
-    #распознает форму выпуска лекарства по изображению
-    #параметры:
+    # распознает форму выпуска лекарства по изображению
+    # параметры:
     #   image_path: путь к изображению
-    #возвращает:
+    # возвращает:
     #   tuple: (название класса, уверенность в %)
-    print(f"Analyzing image: {image_path}")
+    print(f"анализ изображения: {image_path}")
     
     # загрузка и предобработка изображения
     img = image.load_img(image_path, target_size=(384, 384))
@@ -41,10 +39,10 @@ def predict_drug_form(image_path):
     img_array = np.expand_dims(img_array, axis=0)
     img_array = img_array / 255.0  # нормализация
     
-    print("Image prepared!")
+    print("изображение подготовлено!")
     
     # предсказание модели
-    print("Predicting...")
+    print("предсказание...")
     predictions = model.predict(img_array, verbose=0)
     
     # получение результата
@@ -62,16 +60,16 @@ def predict_drug_form(image_path):
 # использование
 
 if __name__ == "__main__":
-    # Папка с тестовыми изображениями
+    # папка с тестовыми изображениями
     TEST_FOLDER = "test_images"
     
-    # Проверяем, существует ли папка
+    # проверяем, существует ли папка
     if not os.path.exists(TEST_FOLDER):
-        print(f"Folder {TEST_FOLDER} not found!")
-        print(f"Create folder {TEST_FOLDER} and place test images there.")
+        print(f"папка {TEST_FOLDER} не найдена!")
+        print(f"создайте папку {TEST_FOLDER} и поместите туда тестовые изображения.")
         exit()
     
-    # Получаем список всех изображений в папке
+    # получаем список всех изображений в папке
     image_extensions = ['.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG']
     test_images = []
     
@@ -80,44 +78,44 @@ if __name__ == "__main__":
             test_images.append(os.path.join(TEST_FOLDER, filename))
     
     if not test_images:
-        print(f"No images found in folder {TEST_FOLDER}!")
+        print(f"в папке {TEST_FOLDER} не найдено изображений!")
         exit()
     
-    print(f"\nFound images for testing: {len(test_images)}")
+    print(f"\nнайдено изображений для тестирования: {len(test_images)}")
     print("=" * 60)
     print()
     
-    # Обрабатываем каждое изображение
+    # обрабатываем каждое изображение
     for i, image_path in enumerate(test_images, 1):
-        print(f"\n[{i}/{len(test_images)}] File: {os.path.basename(image_path)}")
+        print(f"\n[{i}/{len(test_images)}] файл: {os.path.basename(image_path)}")
         print("-" * 60)
         
         try:
-            # Выполняем распознавание
+            # выполняем распознавание
             result_class, confidence = predict_drug_form(image_path)
             
             if result_class:
                 print()
-                print("RESULT:")
-                print(f"  Drug form: {result_class.upper()}")
-                print(f"  Confidence: {confidence:.2f}%")
+                print("результат:")
+                print(f"  форма лекарства: {result_class.upper()}")
+                print(f"  уверенность: {confidence:.2f}%")
                 
-                # Интерпретация уверенности
+                # интерпретация уверенности
                 if confidence > 80:
-                    print("  Status: High confidence")
+                    print("  статус: высокая уверенность")
                 elif confidence > 60:
-                    print("  Status: Medium confidence")
+                    print("  статус: средняя уверенность")
                 else:
-                    print("  Status: Low confidence")
+                    print("  статус: низкая уверенность")
             else:
-                print("Error: Failed to recognize image")
+                print("ошибка: не удалось распознать изображение")
         
         except Exception as e:
-            print(f"Error processing: {e}")
+            print(f"ошибка обработки: {e}")
         
         print()
     
     print("=" * 60)
-    print(f"Processing completed! Total processed: {len(test_images)} images")
+    print(f"обработка завершена! всего обработано: {len(test_images)} изображений")
     print("=" * 60)
 
